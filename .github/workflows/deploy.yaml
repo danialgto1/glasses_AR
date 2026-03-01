@@ -41,7 +41,7 @@ jobs:
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm i
-      - name: Build
+      - name: Build --base /glasses_AR
         run: pnpm run build
       - name: Setup Pages
         uses: actions/configure-pages@v5
