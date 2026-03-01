@@ -92,6 +92,6 @@ export const GLASSES_CONFIG = {
 export type GlassesConfig = typeof GLASSES_CONFIG;
 
 export const GLASSES_OPTIONS = [
-  { id: "transparent", label: "Clear", path: "./glass_transparent.glb" },
   { id: "sunglasses", label: "Sunglasses", path: "./glass_sunglasses.glb" },
+  { id: "transparent", label: "Clear", path: "./glass_transparent.glb" },
 ] as const;
