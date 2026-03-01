@@ -200,7 +200,7 @@ function App() {
       );
       detectorRef.current = await FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
-          modelAssetPath: `/face_landmarker.task`,
+          modelAssetPath: `./face_landmarker.task`,
           delegate: "GPU"
         },
         outputFaceBlendshapes: false,
