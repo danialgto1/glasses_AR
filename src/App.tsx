@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import './App.css'
 import * as vision from '@mediapipe/tasks-vision';
 import Scene from './Scene';
-import { GLASSES_CONFIG as CONFIG } from './config';
+import { GLASSES_CONFIG as CONFIG, GLASSES_OPTIONS } from './config';
 
 export interface FaceTransform {
   x: number;
@@ -27,13 +27,30 @@ function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedGlasses, setSelectedGlasses] = useState<string>(GLASSES_OPTIONS[0].path);
   const detectorRef = useRef<vision.FaceLandmarker | null>(null);
   const [faceTransform, setFaceTransform] = useState<FaceTransform | null>(null);
-  const [videoDimensions, setVideoDimensions] = useState<{ width: 640; height: 480 } | null>(null);
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
   const animFrameRef = useRef<number>(0);
   const loopRef = useRef<FrameRequestCallback | null>(null);
   const prevTransformRef = useRef<FaceTransform | null>(null);
+  const containerSizeRef = useRef({ width: 640, height: 480 });
+  const frameCountRef = useRef(0);
   const { FaceLandmarker, FilesetResolver } = vision;
+
+  // Cache container size to avoid per-frame DOM reads
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      containerSizeRef.current = {
+        width: entry.contentRect.width || 640,
+        height: entry.contentRect.height || 480,
+      };
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Store loop in a ref so it can self-schedule without breaking React compiler rules
   useEffect(() => {
@@ -41,6 +58,13 @@ function App() {
       const video = videoRef.current;
       const detector = detectorRef.current;
       if (!video || !detector) return;
+
+      // Frame-skip: only run detection every N frames
+      frameCountRef.current = (frameCountRef.current + 1) % CONFIG.performance.frameSkip;
+      if (frameCountRef.current !== 0) {
+        animFrameRef.current = requestAnimationFrame(loopRef.current!);
+        return;
+      }
 
       const results = detector.detectForVideo(video, performance.now());
 
@@ -56,8 +80,7 @@ function App() {
         const forehead = lm[CONFIG.landmarks.forehead];
         const chin = lm[CONFIG.landmarks.chin];
 
-        const containerWidth = containerRef.current?.clientWidth || video.videoWidth;
-        const containerHeight = containerRef.current?.clientHeight || video.videoHeight;
+        const { width: containerWidth, height: containerHeight } = containerSizeRef.current;
         const aspectRatio = containerWidth / containerHeight;
         const visibleWidth = VISIBLE_HEIGHT * aspectRatio;
 
@@ -173,14 +196,14 @@ function App() {
   useEffect(() => {
     async function init() {
       const filesetResolver = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+        "./wasm"
       );
       detectorRef.current = await FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
           modelAssetPath: `/face_landmarker.task`,
           delegate: "GPU"
         },
-        outputFaceBlendshapes: true,
+        outputFaceBlendshapes: false,
         runningMode: "VIDEO" as const,
         numFaces: 1
       });
@@ -189,7 +212,7 @@ function App() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        setVideoDimensions({ width: videoRef.current.videoWidth, height: videoRef.current.videoHeight });
+        setVideoDimensions({ width: videoRef.current.videoWidth || 0, height: videoRef.current.videoHeight });
       }
     }
     init();
@@ -207,10 +230,30 @@ function App() {
         // style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}
         >
 
-          <Scene  transform={faceTransform} />
+          <Scene transform={faceTransform} glassesPath={selectedGlasses} />
          </div>
 
         }
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-100 flex gap-2">
+          {GLASSES_OPTIONS.map((g) => (
+            <button
+              key={g.id}
+              onClick={() => setSelectedGlasses(g.path)}
+              style={{
+                padding: "6px 16px",
+                borderRadius: "999px",
+                border: selectedGlasses === g.path ? "2px solid white" : "2px solid transparent",
+                background: selectedGlasses === g.path ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.4)",
+                color: "white",
+                cursor: "pointer",
+                fontWeight: selectedGlasses === g.path ? 700 : 400,
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
         <video
           className=' object-cover fi w-full h-full -z-10'
           style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}

@@ -1,9 +1,10 @@
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo } from "react";
 import type { FaceTransform } from "./App";
-import { Environment, OrbitControls, useGLTF } from "@react-three/drei";
+import { Environment, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { GLASSES_CONFIG as CONFIG } from "./config";
+
 
 // Head occluder - invisible box that blocks temple arms behind it
 const HeadOccluder = () => {
@@ -21,6 +22,7 @@ const HeadOccluder = () => {
   if (!occluderConfig?.enabled) return null;
 
   return (
+    <>
     <mesh
       position={[
         occluderConfig.position.x,
@@ -37,22 +39,36 @@ const HeadOccluder = () => {
       ]} />
       
     </mesh>
+        <mesh
+      position={[
+        occluderConfig.position.x,
+        occluderConfig.position.y,
+        occluderConfig.position.z-.1,
+      ]}
+      renderOrder={0} // Render first so it writes depth before glasses
+      material={depthMaterial}
+    >
+      <boxGeometry args={[
+        occluderConfig.size.width+.1,
+        occluderConfig.size.height,
+        occluderConfig.size.depth,
+      ]} />
+      
+    </mesh>
+        </>
   );
 };
 
-const Model = () => {
-  const { scene, materials } = useGLTF("./glasses.glb");
+
+
+
+import { GLASSES_OPTIONS } from "./config";
+
+const Model = ({ path }: { path: string }) => {
+  const { scene, materials } = useGLTF(path);
 
   // Setup materials on mount
   useEffect(() => {
-    Object.values(materials).forEach((mat) => {
-      if (!(mat instanceof THREE.MeshStandardMaterial)) return;
-      mat.roughness = 0.1;
-      mat.metalness = 0.0;
-      mat.envMapIntensity = 3.0;
-      mat.needsUpdate = true;
-    });
-
     // Set render order for all glasses meshes (render after occluder)
     scene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
@@ -64,10 +80,10 @@ const Model = () => {
   return <primitive object={scene} position={[0, 0, 0]} />;
 };
 
-// Preload so the model is ready before first render
-useGLTF.preload("./glasses.glb");
+// Preload all models so they're ready before first render
+GLASSES_OPTIONS.forEach((g) => useGLTF.preload(g.path));
 
-export default function Scene({ transform }: { transform: FaceTransform }) {
+export default function Scene({ transform, glassesPath }: { transform: FaceTransform; glassesPath: string }) {
   const pivotConfig = CONFIG.pivot;
   const pivotY = pivotConfig?.enabled ? pivotConfig.y : 0;
   const pivotZ = pivotConfig?.enabled ? pivotConfig.z : 0;
@@ -92,11 +108,11 @@ export default function Scene({ transform }: { transform: FaceTransform }) {
           scale={transform.scale}
         >
           {/* Middle group: rotation pivot (neck axis) */}
-          <group rotation={[transform.rotX, transform.rotY, transform.rotZ]}>
+          <group rotation={[transform.rotX - (0.1), transform.rotY, transform.rotZ]}>
             {/* Inner group: offset glasses from neck pivot */}
             <group position={[0, pivotY, pivotZ]}>
               <HeadOccluder />
-              <Model />
+              <Model path={glassesPath} />
             </group>
           </group>
           {/* <OrbitControls /> */}

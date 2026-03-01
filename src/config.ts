@@ -10,15 +10,15 @@ export const GLASSES_CONFIG = {
   position: {
     offsetX: 0,           // Horizontal offset (positive = right)
     offsetY: 0,           // Vertical offset (positive = up)
-    offsetZ: 0,           // Depth offset base
+    offsetZ: -1.2,           // Depth offset base
     depthScale:0,       // How much face Z affects glasses (perspective tracking)
     noseBridgeWeight: 0.3, // Blend nose bridge into Y calculation (0-1)
   },
 
   // Scale configuration
   scale: {
-    baseModelWidth: 1,    // Reference width of glasses model
-    multiplier: 9.0,      // Overall scale adjustment
+    baseModelWidth: .98,    // Reference width of glasses model
+    multiplier: 9.30,      // Overall scale adjustment
     min: 0.3,             // Minimum scale clamp
     max: 50.0,             // Maximum scale clamp
     eyeWeight: 0.6,       // Weight for eye distance in width calculation
@@ -27,7 +27,7 @@ export const GLASSES_CONFIG = {
 
   // Rotation sensitivity
   rotation: {
-    yawMultiplier: 0.70,   // Horizontal rotation sensitivity
+    yawMultiplier: 0.60,   // Horizontal rotation sensitivity
     pitchMultiplier: -.7,  // Vertical rotation sensitivity (head up/down)
     rollMultiplier: .9,   // Tilt rotation sensitivity
     smoothing: .9,        // Smoothing factor (0-1, lower = smoother)
@@ -37,8 +37,8 @@ export const GLASSES_CONFIG = {
   // These offsets define where glasses are relative to the neck pivot
   pivot: {
     enabled: true,
-    y: -0.009,   // Glasses are above neck (positive = up from neck)
-    z: 0.02,    // Glasses are in front of neck (positive = forward from neck)
+    y: -0.0095,   // Glasses are above neck (positive = up from neck)
+    z: 0.04,    // Glasses are in front of neck (positive = forward from neck)
   },
 
   // Occlusion settings for hiding temple arms (opacity-based)
@@ -50,7 +50,7 @@ export const GLASSES_CONFIG = {
 
   // Clipping settings for cutting temple arms at ears (old method - disabled)
   clipping: {
-    enabled: true,
+    enabled: false,
     offsetX: 1,
   },
 
@@ -72,6 +72,11 @@ export const GLASSES_CONFIG = {
     },
   },
 
+  // Performance tuning
+  performance: {
+    frameSkip: 2,  // Run detection every N frames (1 = every frame, 2 = every other frame)
+  },
+
   // MediaPipe landmark indices
   landmarks: {
     leftEyeOuter: 33,
@@ -85,3 +90,8 @@ export const GLASSES_CONFIG = {
 } as const;
 
 export type GlassesConfig = typeof GLASSES_CONFIG;
+
+export const GLASSES_OPTIONS = [
+  { id: "transparent", label: "Clear", path: "./glass_transparent.glb" },
+  { id: "sunglasses", label: "Sunglasses", path: "./glass_sunglasses.glb" },
+] as const;

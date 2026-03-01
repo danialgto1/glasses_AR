@@ -1,73 +1,140 @@
-# React + TypeScript + Vite
+# 3D Glasses Try-On
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time 3D glasses virtual try-on application that uses face detection and augmented reality to preview glasses on your face.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 🎯 **Real-time Face Detection**: Uses MediaPipe's FaceLandmarker for accurate face landmark detection
+- 🥽 **Virtual 3D Glasses**: Try on different styles of glasses in real-time
+- 📹 **Webcam Integration**: Direct webcam access for instant previewing
+- 🎨 **3D Rendering**: Powered by Three.js for high-quality 3D graphics
+- ⚡ **Fast & Responsive**: Built with Vite for optimal development and build performance
+- 🎭 **Multiple Styles**: Support for different glasses configurations and styles
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend Framework**: React 19
+- **3D Graphics**: Three.js with React Three Fiber
+- **Face Detection**: MediaPipe Tasks Vision
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **Language**: TypeScript
+- **Package Manager**: pnpm
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js (v16 or higher)
+- pnpm (or npm/yarn)
+- Webcam access
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Setup
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd glasses_tryon
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Install dependencies
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm install
 ```
+
+3. Start the development server
+
+```bash
+pnpm dev
+```
+
+The application will be available at `http://localhost:5173` (or as specified by Vite)
+
+## Usage
+
+1. **Allow Camera Access**: Grant webcam permissions when prompted
+2. **Select Glasses Style**: Choose from available glasses options using the UI controls
+3. **Try On**: The selected glasses will be rendered in real-time on your face
+4. **Adjust**: The application automatically tracks your face and adjusts glasses position
+
+## Project Structure
+
+```
+glasses_tryon/
+├── src/
+│   ├── App.tsx           # Main application component with face detection logic
+│   ├── Scene.tsx         # Three.js scene rendering component
+│   ├── config.ts         # Configuration for glasses models and camera settings
+│   ├── App.css           # Component styles
+│   ├── index.css         # Global styles
+│   ├── main.tsx          # Application entry point
+│   └── assets/           # Static assets
+├── public/
+│   ├── face_landmarker.task  # MediaPipe face landmarker model
+│   ├── env.hdr              # HDR environment map
+│   └── wasm/                # WebAssembly modules for MediaPipe
+├── vite.config.ts        # Vite configuration
+├── tsconfig.json         # TypeScript configuration
+└── package.json          # Project dependencies and scripts
+```
+
+## Available Scripts
+
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm lint` - Run ESLint checks
+- `pnpm preview` - Preview production build locally
+
+## Key Dependencies
+
+- **@mediapipe/tasks-vision** - Face landmark detection
+- **@react-three/fiber** - React renderer for Three.js
+- **@react-three/drei** - Useful helpers for React Three Fiber
+- **@tensorflow/tfjs-node** - TensorFlow.js with Node.js support
+- **tailwindcss** - Utility-first CSS framework
+
+## Browser Compatibility
+
+This application requires:
+- WebGL support
+- WebRTC for webcam access
+- Browser that supports ES modules
+
+Tested on:
+- Chrome/Chromium 90+
+- Firefox 88+
+- Safari 15+
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is open source. See LICENSE file for more details.
+
+## Troubleshooting
+
+### Camera Not Working
+- Ensure you've granted camera permissions to the browser
+- Check that no other application is using the webcam
+
+### Face Not Detected
+- Ensure adequate lighting in the environment
+- Position your face clearly in front of the camera
+- Make sure the face is fully visible in the frame
+
+### Performance Issues
+- Close other browser tabs to free up resources
+- Reduce the browser window size
+- Try a different browser if issues persist
+
+## Future Enhancements
+
+- Support for more glasses styles
+- Face detail improvements
+- Mobile device support
+- Glasses customization options
+- Export/share functionality
