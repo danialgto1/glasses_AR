@@ -111,7 +111,7 @@ const BlueprintGlasses = ({ bluePrints, glassWidth }: {
   glassWidth: number;
 }) => {
   const [frontTexture, leftTexture] = useTexture([bluePrints.front, bluePrints.left]);
-  const multiplier = .012
+  const multiplier = .0118
   const _glassWidth = glassWidth * multiplier
 
   const frontBounds = useMemo(() => {
