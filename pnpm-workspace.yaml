@@ -1,4 +1,0 @@
-allowBuilds:
-  '@tensorflow/tfjs-node': false
-  canvas: false
-  core-js: false

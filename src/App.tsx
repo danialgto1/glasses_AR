@@ -246,7 +246,7 @@ function App() {
                 background: selectedGlasses.id === g.id ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.4)",
                 color: "white",
                 cursor: "pointer",
-                fontWeight: selectedGlasses === g.path ? 700 : 400,
+                fontWeight: selectedGlasses.id === g.id ? 700 : 400,
                 backdropFilter: "blur(6px)",
               }}
             >
