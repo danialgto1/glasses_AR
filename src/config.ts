@@ -94,4 +94,8 @@ export type GlassesConfig = typeof GLASSES_CONFIG;
 export const GLASSES_OPTIONS = [
   { id: "sunglasses", label: "Sunglasses", path: "./glass_sunglasses.glb" },
   { id: "transparent", label: "Clear", path: "./glass_transparent.glb" },
+  { id:"legacy" , label:"Old", path:null , glassWidth: 13.0, bluePrints:{
+    front : "./legacy/front.png",
+    left:"./legacy/left.png"
+  }}
 ] as const;

@@ -27,7 +27,7 @@ function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedGlasses, setSelectedGlasses] = useState<string>(GLASSES_OPTIONS[0].path);
+  const [selectedGlasses, setSelectedGlasses] = useState<typeof GLASSES_OPTIONS[number]>(GLASSES_OPTIONS[0]);
   const detectorRef = useRef<vision.FaceLandmarker | null>(null);
   const [faceTransform, setFaceTransform] = useState<FaceTransform | null>(null);
   const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -230,7 +230,7 @@ function App() {
         // style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}
         >
 
-          <Scene transform={faceTransform} glassesPath={selectedGlasses} />
+          <Scene transform={faceTransform} glasses={selectedGlasses} />
          </div>
 
         }
@@ -238,12 +238,12 @@ function App() {
           {GLASSES_OPTIONS.map((g) => (
             <button
               key={g.id}
-              onClick={() => setSelectedGlasses(g.path)}
+              onClick={() => setSelectedGlasses(g)}
               style={{
                 padding: "6px 16px",
                 borderRadius: "999px",
-                border: selectedGlasses === g.path ? "2px solid white" : "2px solid transparent",
-                background: selectedGlasses === g.path ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.4)",
+                border: selectedGlasses.id === g.id ? "2px solid white" : "2px solid transparent",
+                background: selectedGlasses.id === g.id ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.4)",
                 color: "white",
                 cursor: "pointer",
                 fontWeight: selectedGlasses === g.path ? 700 : 400,
