@@ -3,7 +3,7 @@ import { Suspense, useEffect, useMemo } from "react";
 import type { FaceTransform } from "./App";
 import { Environment, useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { GLASSES_CONFIG as CONFIG, GLASSES_OPTIONS } from "./config";
+import { GLASSES_CONFIG as CONFIG, GLASSES_OPTIONS, type GlassesOption } from "./config";
 
 
 // Head occluder - invisible box that blocks temple arms behind it
@@ -76,10 +76,9 @@ const Model = ({ path }: { path: string }) => {
   return <primitive object={scene} position={[0, 0, 0]} />;
 };
 
-type AnyGlassesOption = typeof GLASSES_OPTIONS[number];
-type BlueprintOption = Extract<AnyGlassesOption, { path: null }>;
+type BlueprintOption = Extract<GlassesOption, { path: null }>;
 
-function isBlueprintOption(g: AnyGlassesOption): g is BlueprintOption {
+function isBlueprintOption(g: GlassesOption): g is BlueprintOption {
   return g.path === null;
 }
 
@@ -178,7 +177,7 @@ const BlueprintGlasses = ({ bluePrints, glassWidth }: {
 // Preload all GLB models (skip null paths)
 GLASSES_OPTIONS.forEach((g) => { if (g.path) useGLTF.preload(g.path); });
 
-export default function Scene({ transform, glasses }: { transform: FaceTransform; glasses: AnyGlassesOption }) {
+export default function Scene({ transform, glasses }: { transform: FaceTransform; glasses: GlassesOption }) {
   const pivotConfig = CONFIG.pivot;
   const pivotY = pivotConfig?.enabled ? pivotConfig.y : 0;
   const pivotZ = pivotConfig?.enabled ? pivotConfig.z : 0;
@@ -216,7 +215,7 @@ export default function Scene({ transform, glasses }: { transform: FaceTransform
           </group>
           {/* <OrbitControls /> */}
         </group>
-        <Environment files="./env.hdr" backgroundBlurriness={0.5} />
+        <Environment files={`${import.meta.env.BASE_URL}env.hdr`} backgroundBlurriness={0.5} />
       </Suspense>
     </Canvas>
   );

@@ -1,8 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import './App.css'
 import * as vision from '@mediapipe/tasks-vision';
 import Scene from './Scene';
-import { GLASSES_CONFIG as CONFIG, GLASSES_OPTIONS } from './config';
+import { GLASSES_CONFIG as CONFIG, GLASSES_OPTIONS, type GlassesOption } from './config';
 
 export interface FaceTransform {
   x: number;
@@ -23,12 +22,18 @@ export interface FaceTransform {
 const FOV_RAD = (CONFIG.camera.fov * Math.PI) / 180;
 const VISIBLE_HEIGHT = 2 * CONFIG.camera.positionZ * Math.tan(FOV_RAD / 2);
 
+const BASE = import.meta.env.BASE_URL;
+
+// When embedded in a WordPress page, the page URL carries the product id (?id=2648)
+const GLASS_ID = new URLSearchParams(window.location.search).get('id');
+const GLASS_API = 'https://eyepack.ir/wp-json/eyepack/v1/glass/';
+
 // Expected sizes (bytes) so the progress bar is weighted correctly even before
 // every response arrives, and as a fallback when Content-Length is missing.
 const ASSET_SIZES: Record<string, number> = {
-  './wasm/vision_wasm_internal.js': 205_745,
-  './wasm/vision_wasm_internal.wasm': 8_689_767,
-  './face_landmarker.task': 3_758_596,
+  [`${BASE}wasm/vision_wasm_internal.js`]: 205_745,
+  [`${BASE}wasm/vision_wasm_internal.wasm`]: 8_689_767,
+  [`${BASE}face_landmarker.task`]: 3_758_596,
 };
 const TOTAL_BYTES = Object.values(ASSET_SIZES).reduce((a, b) => a + b, 0);
 const CACHE_NAME = 'mediapipe-assets-v1';
@@ -72,10 +77,9 @@ function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [status, setStatus] = useState<LoadStatus>({ stage: 'downloading', pct: 0 });
   const [attempt, setAttempt] = useState(0);
-  const [selectedGlasses, setSelectedGlasses] = useState<typeof GLASSES_OPTIONS[number]>(GLASSES_OPTIONS[0]);
+  const [selectedGlasses, setSelectedGlasses] = useState<GlassesOption>(GLASSES_OPTIONS[0]);
   const detectorRef = useRef<vision.FaceLandmarker | null>(null);
   const [faceTransform, setFaceTransform] = useState<FaceTransform | null>(null);
-  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
   const animFrameRef = useRef<number>(0);
   const loopRef = useRef<FrameRequestCallback | null>(null);
   const prevTransformRef = useRef<FaceTransform | null>(null);
@@ -249,9 +253,18 @@ function App() {
           const done = Object.values(progress).reduce((a, b) => a + b, 0);
           setStatus({ stage: 'downloading', pct: Math.min(100, Math.round((done / TOTAL_BYTES) * 100)) });
         };
-        const [loaderJs, wasmBin, modelBuf] = await Promise.all(
-          Object.keys(ASSET_SIZES).map((url) => loadAsset(url, onProgress(url)))
-        );
+        const glassPromise: Promise<GlassesOption | null> = GLASS_ID
+          ? fetch(`${GLASS_API}${GLASS_ID}`).then((r) => {
+              if (!r.ok) throw new Error(`glass ${GLASS_ID}: ${r.status}`);
+              return r.json();
+            })
+          : Promise.resolve(null);
+
+        const [glass, [loaderJs, wasmBin, modelBuf]] = await Promise.all([
+          glassPromise,
+          Promise.all(Object.keys(ASSET_SIZES).map((url) => loadAsset(url, onProgress(url)))),
+        ]);
+        if (glass) setSelectedGlasses(glass);
 
         // Feed MediaPipe from the buffers we already downloaded (and cached),
         // instead of letting it re-fetch the wasm from the network.
@@ -277,7 +290,6 @@ function App() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          setVideoDimensions({ width: videoRef.current.videoWidth || 0, height: videoRef.current.videoHeight });
         }
       } catch (err) {
         if (cancelled) return;
@@ -285,7 +297,7 @@ function App() {
           stage: 'error',
           message: (err as Error)?.name === 'NotAllowedError'
             ? 'Camera access was denied. Allow camera access in your browser, then retry.'
-            : 'Failed to load the AI model. Check your connection, then retry.',
+            : 'Failed to load. Check your connection, then retry.',
         });
       }
     }
@@ -298,9 +310,9 @@ function App() {
 
   return (
     <>
-      <div ref={containerRef} className='relative' style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}>
+      <div ref={containerRef} className='relative h-full w-full overflow-hidden'>
         {status.stage !== 'ready' && (
-          <div className='fixed inset-0 z-[200] flex flex-col items-center justify-center gap-4 bg-neutral-950 text-white'>
+          <div className='absolute inset-0 z-[200] flex flex-col items-center justify-center gap-4 bg-neutral-950 text-white'>
             <p className='text-lg font-semibold'>Virtual Try-On</p>
             {status.stage === 'error' ? (
               <>
@@ -327,16 +339,12 @@ function App() {
             )}
           </div>
         )}
-        {faceTransform  && 
-        <div className={` w-full h-full absolute z-100 `}
-        // style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}
-        >
-
+        {faceTransform &&
+        <div className='w-full h-full absolute z-100'>
           <Scene transform={faceTransform} glasses={selectedGlasses} />
-         </div>
-
+        </div>
         }
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-100 flex gap-2">
+        {!GLASS_ID && <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-100 flex gap-2">
           {GLASSES_OPTIONS.map((g) => (
             <button
               key={g.id}
@@ -355,11 +363,9 @@ function App() {
               {g.label}
             </button>
           ))}
-        </div>
+        </div>}
         <video
-          className=' object-cover fi w-full h-full -z-10'
-          style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}
-          
+          className='object-cover w-full h-full -z-10'
           onLoadedData={() => { setStatus({ stage: 'ready' }); startLoop(); }}
           ref={videoRef}
           autoPlay

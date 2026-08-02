@@ -1,2 +1,6 @@
-@import "tailwindcss";
+/* Tailwind without preflight: the app is embedded in a WordPress page, and
+   preflight's global resets would restyle the host page. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
 

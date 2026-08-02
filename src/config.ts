@@ -91,11 +91,24 @@ export const GLASSES_CONFIG = {
 
 export type GlassesConfig = typeof GLASSES_CONFIG;
 
-export const GLASSES_OPTIONS = [
-  { id: "sunglasses", label: "Sunglasses", path: "./glass_sunglasses.glb" },
-  { id: "transparent", label: "Clear", path: "./glass_transparent.glb" },
+const BASE = import.meta.env.BASE_URL;
+
+// Shape shared by built-in options and the eyepack API response
+export type GlassesOption =
+  | { id: string; label: string; path: string }
+  | {
+      id: string;
+      label: string;
+      path: null;
+      glassWidth: number;
+      bluePrints: { front: string; left: string };
+    };
+
+export const GLASSES_OPTIONS: readonly GlassesOption[] = [
+  { id: "sunglasses", label: "Sunglasses", path: `${BASE}glass_sunglasses.glb` },
+  { id: "transparent", label: "Clear", path: `${BASE}glass_transparent.glb` },
   { id:"legacy" , label:"Old", path:null , glassWidth: 13.0, bluePrints:{
-    front : "./legacy/front.png",
-    left:"./legacy/left.png"
+    front : `${BASE}legacy/front.png`,
+    left: `${BASE}legacy/left.png`
   }}
-] as const;
+];
