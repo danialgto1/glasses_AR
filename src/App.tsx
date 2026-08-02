@@ -23,10 +23,55 @@ export interface FaceTransform {
 const FOV_RAD = (CONFIG.camera.fov * Math.PI) / 180;
 const VISIBLE_HEIGHT = 2 * CONFIG.camera.positionZ * Math.tan(FOV_RAD / 2);
 
+// Expected sizes (bytes) so the progress bar is weighted correctly even before
+// every response arrives, and as a fallback when Content-Length is missing.
+const ASSET_SIZES: Record<string, number> = {
+  './wasm/vision_wasm_internal.js': 205_745,
+  './wasm/vision_wasm_internal.wasm': 8_689_767,
+  './face_landmarker.task': 3_758_596,
+};
+const TOTAL_BYTES = Object.values(ASSET_SIZES).reduce((a, b) => a + b, 0);
+const CACHE_NAME = 'mediapipe-assets-v1';
+
+// Fetch with byte-level progress, persisted in the Cache Storage API so repeat
+// visits load from disk instead of the network.
+async function loadAsset(url: string, onProgress: (loaded: number) => void): Promise<ArrayBuffer> {
+  // caches is unavailable in insecure contexts — degrade to plain fetch
+  const cache = 'caches' in window ? await caches.open(CACHE_NAME).catch(() => null) : null;
+  const cached = await cache?.match(url);
+  if (cached) {
+    const buf = await cached.arrayBuffer();
+    onProgress(buf.byteLength);
+    return buf;
+  }
+  const res = await fetch(url);
+  if (!res.ok || !res.body) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let loaded = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.length;
+    onProgress(loaded);
+  }
+  const buf = await new Blob(chunks as BlobPart[]).arrayBuffer();
+  await cache?.put(url, new Response(buf)).catch(() => {});
+  return buf;
+}
+
+type LoadStatus =
+  | { stage: 'downloading'; pct: number }
+  | { stage: 'camera' }
+  | { stage: 'ready' }
+  | { stage: 'error'; message: string };
+
 function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [status, setStatus] = useState<LoadStatus>({ stage: 'downloading', pct: 0 });
+  const [attempt, setAttempt] = useState(0);
   const [selectedGlasses, setSelectedGlasses] = useState<typeof GLASSES_OPTIONS[number]>(GLASSES_OPTIONS[0]);
   const detectorRef = useRef<vision.FaceLandmarker | null>(null);
   const [faceTransform, setFaceTransform] = useState<FaceTransform | null>(null);
@@ -36,7 +81,7 @@ function App() {
   const prevTransformRef = useRef<FaceTransform | null>(null);
   const containerSizeRef = useRef({ width: 640, height: 480 });
   const frameCountRef = useRef(0);
-  const { FaceLandmarker, FilesetResolver } = vision;
+  const { FaceLandmarker } = vision;
 
   // Cache container size to avoid per-frame DOM reads
   useEffect(() => {
@@ -194,37 +239,94 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     async function init() {
-      const filesetResolver = await FilesetResolver.forVisionTasks(
-        "./wasm"
-      );
-      detectorRef.current = await FaceLandmarker.createFromOptions(filesetResolver, {
-        baseOptions: {
-          modelAssetPath: `./face_landmarker.task`,
-          delegate: "GPU"
-        },
-        outputFaceBlendshapes: false,
-        runningMode: "VIDEO" as const,
-        numFaces: 1
-      });
-      setIsLoading(false);
+      try {
+        const progress: Record<string, number> = {};
+        const onProgress = (url: string) => (loaded: number) => {
+          if (cancelled) return;
+          progress[url] = loaded;
+          const done = Object.values(progress).reduce((a, b) => a + b, 0);
+          setStatus({ stage: 'downloading', pct: Math.min(100, Math.round((done / TOTAL_BYTES) * 100)) });
+        };
+        const [loaderJs, wasmBin, modelBuf] = await Promise.all(
+          Object.keys(ASSET_SIZES).map((url) => loadAsset(url, onProgress(url)))
+        );
 
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setVideoDimensions({ width: videoRef.current.videoWidth || 0, height: videoRef.current.videoHeight });
+        // Feed MediaPipe from the buffers we already downloaded (and cached),
+        // instead of letting it re-fetch the wasm from the network.
+        const wasmLoaderPath = URL.createObjectURL(new Blob([loaderJs], { type: 'text/javascript' }));
+        const wasmBinaryPath = URL.createObjectURL(new Blob([wasmBin], { type: 'application/wasm' }));
+        try {
+          detectorRef.current = await FaceLandmarker.createFromOptions({ wasmLoaderPath, wasmBinaryPath }, {
+            baseOptions: {
+              modelAssetBuffer: new Uint8Array(modelBuf),
+              delegate: "GPU"
+            },
+            outputFaceBlendshapes: false,
+            runningMode: "VIDEO" as const,
+            numFaces: 1
+          });
+        } finally {
+          URL.revokeObjectURL(wasmLoaderPath);
+          URL.revokeObjectURL(wasmBinaryPath);
+        }
+        if (cancelled) return;
+        setStatus({ stage: 'camera' });
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setVideoDimensions({ width: videoRef.current.videoWidth || 0, height: videoRef.current.videoHeight });
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setStatus({
+          stage: 'error',
+          message: (err as Error)?.name === 'NotAllowedError'
+            ? 'Camera access was denied. Allow camera access in your browser, then retry.'
+            : 'Failed to load the AI model. Check your connection, then retry.',
+        });
       }
     }
     init();
     return () => {
+      cancelled = true;
       cancelAnimationFrame(animFrameRef.current);
     };
-  }, [FaceLandmarker, FilesetResolver]);
+  }, [FaceLandmarker, attempt]);
 
   return (
     <>
       <div ref={containerRef} className='relative' style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}>
-        {isLoading && <p className='absolute inset-0 z-10 text-white p-2'>Loading...</p>}
+        {status.stage !== 'ready' && (
+          <div className='fixed inset-0 z-[200] flex flex-col items-center justify-center gap-4 bg-neutral-950 text-white'>
+            <p className='text-lg font-semibold'>Virtual Try-On</p>
+            {status.stage === 'error' ? (
+              <>
+                <p className='max-w-xs text-center text-sm text-neutral-300'>{status.message}</p>
+                <button
+                  onClick={() => { setStatus({ stage: 'downloading', pct: 0 }); setAttempt((a) => a + 1); }}
+                  className='rounded-full bg-white px-5 py-1.5 text-sm font-semibold text-black'
+                >
+                  Retry
+                </button>
+              </>
+            ) : (
+              <>
+                <div className='h-1.5 w-64 overflow-hidden rounded-full bg-neutral-800'>
+                  <div
+                    className='h-full bg-white transition-[width] duration-200'
+                    style={{ width: `${status.stage === 'downloading' ? status.pct : 100}%` }}
+                  />
+                </div>
+                <p className='text-sm text-neutral-300'>
+                  {status.stage === 'downloading' ? `Downloading AI model… ${status.pct}%` : 'Starting camera…'}
+                </p>
+              </>
+            )}
+          </div>
+        )}
         {faceTransform  && 
         <div className={` w-full h-full absolute z-100 `}
         // style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}
@@ -258,7 +360,7 @@ function App() {
           className=' object-cover fi w-full h-full -z-10'
           style={{width:videoDimensions?.width+" px", height:videoDimensions?.height+ " px"}}
           
-          onLoadedData={startLoop}
+          onLoadedData={() => { setStatus({ stage: 'ready' }); startLoop(); }}
           ref={videoRef}
           autoPlay
           muted
